@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Microsoft Rewards Bookmark Manager</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="input-group">
+            <div class="label-container">
+                <label for="baseUrl">Base URL</label>
+                <span id="validationStatus" class="validation-status"></span>
+            </div>
+            <input type="text" id="baseUrl" placeholder="https://www.bing.com/search?q=">
+        </div>
+        <div class="input-row">
+            <div class="input-column">
+                <div class="label-container">
+                    <label for="skipDuration">Skip Duration</label>
+                </div>
+                <div class="number-input-container">
+                    <input type="number" id="skipDuration" placeholder="Enter duration in seconds" min="1" max="100" value="10">
+                </div>
+                <small class="input-hint">Recommended: >= 10 seconds</small>
+            </div>
+            <div class="input-column">
+                <div class="label-container">
+                    <label for="bookmarkCount">Bookmark Count</label>
+                </div>
+                <div class="number-input-container">
+                    <input type="number" id="bookmarkCount" placeholder="Number of bookmarks" min="1" max="100" value="30">
+                </div>
+                <small class="input-hint">Recommended: >= 30 bookmarks for better results</small>
+            </div>
+        </div>
+        <div class="stats-container">
+            <div class="stats-item">
+                <span class="stats-label">Last Position:</span>
+                <span id="lastPosition">0</span>
+            </div>
+        </div>
+        <div class="button-container">
+            <button id="openBookmark">Start/Resume Script</button>
+            <button id="resetProgress">Reset Progress</button>
+        </div>
+        <div class="progress-container">
+            <p>Current Progress: <span id="counterDisplay">0 out of 0</span></p>
+        </div>
+        <script src="keywords.js"></script>
+        <script src="popup.js"></script>
+    </body>
+</html>

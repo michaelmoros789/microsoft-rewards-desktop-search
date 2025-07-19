@@ -1,0 +1,49 @@
+{
+  "name": "microsoft-rewards-bookmark-manager",
+  "version": "1.0.0",
+  "description": "A Chrome extension that automates Microsoft Rewards by creating and managing Bing search bookmarks with unique keywords.",
+  "main": "dist/popup.js",
+  "scripts": {
+    "build": "tsc && npm run copy-assets",
+    "build:win": "tsc && copy src\\*.html dist\\ && copy src\\*.css dist\\ && copy src\\icon.png dist\\ && copy src\\manifest.json dist\\",
+    "build:unix": "tsc && cp src/*.html dist/ && cp src/*.css dist/ && cp src/icon.png dist/ && cp src/manifest.json dist/",
+    "copy-assets": "node scripts/copy-assets.js",
+    "watch": "tsc --watch",
+    "clean": "rimraf dist",
+    "dev": "npm run clean && npm run build && npm run watch",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "npm run build && cd dist && zip -r ../extension.zip ."
+  },
+  "keywords": [
+    "chrome-extension",
+    "microsoft-rewards",
+    "bing",
+    "automation",
+    "bookmarks",
+    "typescript"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/microsoft-rewards-bookmark-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/microsoft-rewards-bookmark-manager/issues"
+  },
+  "homepage": "https://github.com/yourusername/microsoft-rewards-bookmark-manager#readme",
+  "devDependencies": {
+    "@types/chrome": "^0.0.244",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
