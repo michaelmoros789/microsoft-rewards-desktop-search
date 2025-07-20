@@ -1,0 +1,294 @@
+:root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+}
+
+body {
+    width: 300px;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    margin: 0;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.input-group {
+    margin-bottom: 24px;
+}
+
+.input-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.input-column {
+    flex: 1;
+}
+
+.input-column p {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.label-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+label {
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    margin-right: 8px;
+}
+
+.validation-status {
+    font-size: 13px;
+    padding: 2px 8px;
+    border-radius: var(--radius);
+    font-weight: 600;
+}
+
+.valid {
+    color: hsl(142.1 76.2% 36.3%);
+    background-color: hsl(142.1 70.6% 45.3% / 0.1);
+}
+
+.invalid {
+    color: hsl(0 84.2% 60.2%);
+    background-color: hsl(0 84.2% 60.2% / 0.1);
+    font-weight: 700;
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    border: 1px solid hsl(var(--input));
+    border-radius: var(--radius);
+    font-size: 14px;
+    transition: all 0.2s;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.1);
+}
+
+/* Remove default number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* Custom number input container */
+.number-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.number-input-container input {
+    padding-right: 40px;
+}
+
+.number-input-container::after {
+    content: "sec";
+    position: absolute;
+    right: 12px;
+    color: hsl(var(--muted-foreground));
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.input-hint {
+    font-size: 14px;
+    color: hsl(var(--muted-foreground) / 0.65);
+    margin: 0;
+    line-height: 1;
+    letter-spacing: -0.2px;
+}
+
+button {
+    margin: 4px 0;
+    padding: 10px 16px;
+    width: 100%;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+button:disabled {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    cursor: not-allowed;
+}
+
+.button-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+#openBookmark {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+#resetProgress {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+}
+
+button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.stats-container {
+    background-color: hsl(var(--card));
+    padding: 16px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    border: 1px solid hsl(var(--border));
+}
+
+.stats-item {
+    margin: 4px 0;
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+}
+
+.stats-label {
+    font-weight: 500;
+    color: hsl(var(--foreground));
+}
+
+.progress-container {
+    background-color: hsl(var(--card));
+    padding: 16px;
+    border-radius: var(--radius);
+    text-align: center;
+    border: 1px solid hsl(var(--border));
+}
+
+#counterDisplay {
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    font-size: 14px;
+}
+
+p {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 14px;
+}
+
+/* Notification System */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+}
+
+.notification.success {
+    background-color: hsl(142.1 76.2% 36.3%);
+    color: white;
+}
+
+.notification.error {
+    background-color: hsl(0 84.2% 60.2%);
+    color: white;
+}
+
+.notification.warning {
+    background-color: hsl(38 92% 50%);
+    color: hsl(0 0% 20%);
+}
+
+.notification.info {
+    background-color: hsl(221.2 83.2% 53.3%);
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
