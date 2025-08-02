@@ -1,144 +1,128 @@
 /// <reference types="chrome" />
 
+import { config } from "./config";
+import { Logger } from "./utils/logger";
+import { getStorageItem, setStorageItem } from "./utils/storage";
+import { isValidUrlPattern, validateSkipDuration, validateBookmarkCount } from "./utils/validator";
+import { NotificationManager } from "./utils/notification";
+
+import { MicrosoftRewardsBookmarks } from "./utils/bookmark";
+
 /**
  * Application state for the popup UI.
  */
 type AppState = {
     /** Interval ID for the bookmark opening process */
     intervalId: ReturnType<typeof setInterval> | null;
-    /** Whether the base URL is valid for Bing search */
-    isBaseUrlValid: boolean;
-    /** Last visited bookmark index */
-    lastVisitedIndex: number;
-    /** Delay (seconds) between opening bookmarks */
-    skipDuration: number;
-    /** Number of bookmarks to create/use */
-    bookmarkCount: number;
-    /** Bing search base URL */
-    baseUrl: string;
     /** Whether the bookmark opening process is running */
     isProcessRunning: boolean;
+    /** Last visited bookmark index */
+    lastVisitedIndex: number;
+
+    settings: {
+        /** Delay (seconds) between opening bookmarks */
+        skipDuration: number;
+        /** Number of bookmarks to create/use */
+        bookmarkCount: number;
+        /** Bing search base URL */
+        baseUrl: string;
+        /** Whether the base URL is valid for Bing search */
+        isBaseUrlValid: boolean;
+    };
 };
-
-// Constants for default and allowed values
-const DEFAULT_SKIP_DURATION = 10;
-const DEFAULT_BOOKMARK_COUNT = 30;
-const MAX_BOOKMARK_COUNT = 100;
-const MIN_BOOKMARK_COUNT = 1;
-const MIN_SKIP_DURATION = 1;
-const MAX_SKIP_DURATION = 60;
-
-/**
- * Logger utility for consistent error handling and debugging.
- */
-class Logger {
-    static info(message: string, data?: any): void {
-        console.log(`[INFO] ${message}`, data || '');
-    }
-
-    static warn(message: string, data?: any): void {
-        console.warn(`[WARN] ${message}`, data || '');
-    }
-
-    static error(message: string, error?: any): void {
-        console.error(`[ERROR] ${message}`, error || '');
-    }
-}
 
 /**
  * Global state object for the popup UI.
  */
 const state: AppState = {
     intervalId: null,
-    isBaseUrlValid: false,
     lastVisitedIndex: 0,
-    skipDuration: DEFAULT_SKIP_DURATION,
-    bookmarkCount: DEFAULT_BOOKMARK_COUNT,
-    baseUrl: "",
     isProcessRunning: false,
+    settings: {
+        skipDuration: config.DEFAULT_SKIP_DURATION,
+        bookmarkCount: config.DEFAULT_BOOKMARK_COUNT,
+        baseUrl: "",
+        isBaseUrlValid: false,
+    }
 };
 
 // DOM Elements
 const counterDisplay = document.getElementById("counterDisplay") as HTMLElement;
-const lastPosition = document.getElementById("lastPosition") as HTMLElement;
+const timeRemaining = document.getElementById("timeRemaining") as HTMLElement;
 const baseUrlTextbox = document.getElementById("baseUrl") as HTMLInputElement;
 const openBookmarkButton = document.getElementById("openBookmark") as HTMLButtonElement;
 const resetProgressButton = document.getElementById("resetProgress") as HTMLButtonElement;
 const validationStatus = document.getElementById("validationStatus") as HTMLElement;
 const skipDurationInput = document.getElementById("skipDuration") as HTMLInputElement;
 const bookmarkCountInput = document.getElementById("bookmarkCount") as HTMLInputElement;
-
-
+const progressBar = document.querySelector(".progress-bar") as HTMLElement;
+const abortTaskButton = document.getElementById("abortTask") as HTMLButtonElement;
 
 // Access keywords from window object (populated by keywords.js)
 const keywords = (window as any).keywords as string[];
 
+// Initialize notification manager
+const notificationManager = NotificationManager.getInstance();
+
 /**
- * Show a user-friendly notification message.
+ * Show a user-friendly notification message using the notification manager.
  * @param message The message to display
  * @param type The type of notification (success, error, warning, info)
  */
 function showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info'): void {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-
-    // Add to page
-    document.body.appendChild(notification);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 3000);
+    notificationManager.show(message, type);
 }
 
 /**
- * Get a value from Chrome local storage, or set it to a fallback if not present.
- * @param key Storage key
- * @param fallbackValue Value to use if key is not present
- * @returns Promise resolving to the value
+ * Update the progress bar animation duration based on skip duration.
+ * @param skipDuration The skip duration in seconds
  */
-function getStorageItem<T>(key: string, fallbackValue: T): Promise<T> {
-    return new Promise((resolve, reject) => {
-        try {
-            chrome.storage.local.get([key], (result) => {
-                if (chrome.runtime.lastError) {
-                    Logger.error(`Storage get error for key ${key}:`, chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                    return;
-                }
-
-                if (result[key] === undefined) {
-                    chrome.storage.local.set({ [key]: fallbackValue }, () => {
-                        if (chrome.runtime.lastError) {
-                            Logger.error(`Storage set error for key ${key}:`, chrome.runtime.lastError);
-                            reject(chrome.runtime.lastError);
-                            return;
-                        }
-                        resolve(fallbackValue);
-                    });
-                } else {
-                    resolve(result[key] as T);
-                }
-            });
-        } catch (error) {
-            Logger.error(`Storage operation failed for key ${key}:`, error);
-            reject(error);
-        }
-    });
+function updateProgressBarDuration(skipDuration: number): void {
+    if (progressBar) {
+        progressBar.style.animationDuration = `${skipDuration}s`;
+    }
 }
 
 /**
- * Validate that a URL is a Bing search URL with a q= or pq= parameter.
- * @param url The URL to validate
- * @returns True if valid, false otherwise
+ * Stop the progress bar animation.
  */
-function isValidUrlPattern(url: string): boolean {
-    if (!url.startsWith("https://www.bing.com/search?")) return false;
-    return /[?&](?!p)q=[^&]+|[?&]pq=[^&]+/.test(url);
+function stopProgressBarAnimation(): void {
+    if (progressBar) {
+        progressBar.classList.remove('animating');
+        progressBar.style.width = '0%';
+    }
+}
+
+/**
+ * Format seconds into MM:SS format.
+ * @param totalSeconds Total seconds to format
+ * @returns Formatted time string
+ */
+function formatTime(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Update the timer display with remaining time.
+ * @param currentIndex Current bookmark index (1-based, represents items processed)
+ * @param totalBookmarks Total number of bookmarks
+ * @param skipDuration Skip duration in seconds
+ */
+function updateTimer(currentIndex: number, totalBookmarks: number, skipDuration: number): void {
+    if (timeRemaining) {
+        // currentIndex represents how many items have been processed (1-based)
+        // For example: if currentIndex is 3, we've processed 3 items
+        const remainingBookmarks = totalBookmarks - currentIndex;
+        const remainingSeconds = remainingBookmarks * skipDuration;
+
+        if (remainingSeconds > 0) {
+            timeRemaining.textContent = `< ${formatTime(remainingSeconds)}`;
+        } else {
+            timeRemaining.textContent = "00:00";
+        }
+    }
 }
 
 /**
@@ -146,123 +130,20 @@ function isValidUrlPattern(url: string): boolean {
  * @param url The base URL to validate
  */
 function updateValidationStatus(url: string): void {
-    state.isBaseUrlValid = isValidUrlPattern(url);
+    state.settings.isBaseUrlValid = isValidUrlPattern(url);
 
-    if (state.isBaseUrlValid) {
+    if (state.settings.isBaseUrlValid) {
         validationStatus.textContent = "Valid";
         validationStatus.className = "validation-status valid";
-        openBookmarkButton.disabled = false;
+        if (openBookmarkButton) {
+            openBookmarkButton.disabled = false;
+        }
     } else {
         validationStatus.textContent = "Invalid";
         validationStatus.className = "validation-status invalid";
-        openBookmarkButton.disabled = true;
-    }
-}
-
-/**
- * Replace the q= or pq= parameter in a Bing search URL with a new value.
- * @param url The base URL
- * @param value The new search query
- * @returns The updated URL
- */
-function replaceQueryParam(url: string, value: string): string {
-    const encodedValue = value.replace(/\s+/g, "+");
-    let newUrl = url.replace(/([?&])(?!p)q=[^&]+/, `$1q=${encodedValue}`);
-    if (newUrl === url) {
-        newUrl = url.replace(/([?&])pq=[^&]+/, `$1pq=${encodedValue}`);
-    }
-    return newUrl;
-}
-
-/**
- * Validate and clamp the skip duration input.
- * @param value The input value
- * @returns A valid skip duration
- */
-function validateAndSetSkipDuration(value: string): number {
-    const num = parseInt(value);
-    return isNaN(num) ? DEFAULT_SKIP_DURATION : Math.min(Math.max(num, MIN_SKIP_DURATION), MAX_SKIP_DURATION);
-}
-
-/**
- * Validate and clamp the bookmark count input.
- * @param value The input value
- * @returns A valid bookmark count
- */
-function validateAndSetBookmarkCount(value: string): number {
-    const num = parseInt(value);
-    return isNaN(num) ? DEFAULT_BOOKMARK_COUNT : Math.min(Math.max(num, MIN_BOOKMARK_COUNT), MAX_BOOKMARK_COUNT);
-}
-
-/**
- * Update the UI and open the next bookmark in the process.
- * @param bookmarks List of bookmark nodes
- */
-function updateStatusText(bookmarks: chrome.bookmarks.BookmarkTreeNode[]): void {
-    if (state.lastVisitedIndex >= bookmarks.length) {
-        clearInterval(state.intervalId!);
-        state.isProcessRunning = false;
-        showNotification('Bookmark automation completed!', 'success');
-        Logger.info('Bookmark automation completed');
-        return;
-    }
-
-    try {
-        const bookmark = bookmarks[state.lastVisitedIndex];
-        if (!bookmark.url) {
-            Logger.warn(`Bookmark at index ${state.lastVisitedIndex} has no URL`);
-            state.lastVisitedIndex++;
-            return;
+        if (openBookmarkButton) {
+            openBookmarkButton.disabled = true;
         }
-
-        chrome.tabs.create({
-            url: bookmark.url,
-            active: false
-        }, (tab) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to create tab:', chrome.runtime.lastError);
-                showNotification('Failed to open bookmark', 'error');
-            } else {
-                Logger.info(`Opened bookmark: ${bookmark.title}`);
-            }
-        });
-
-        chrome.storage.local.set({ lastVisitedIndex: state.lastVisitedIndex }, () => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to save progress:', chrome.runtime.lastError);
-            }
-        });
-
-        state.lastVisitedIndex++;
-        counterDisplay.textContent = `${state.lastVisitedIndex} out of ${bookmarks.length}`;
-        lastPosition.textContent = state.lastVisitedIndex.toString();
-    } catch (error) {
-        Logger.error('Error in updateStatusText:', error);
-        showNotification('Error processing bookmark', 'error');
-    }
-}
-
-/**
- * Get a shuffled array of unique keywords.
- * @param number Number of unique keywords to return
- * @returns Array of unique keywords
- */
-function getUniqueWords(number: number): string[] {
-    try {
-        if (!keywords || !Array.isArray(keywords)) {
-            Logger.error('Keywords not available or invalid');
-            return [];
-        }
-
-        const uniqueWords = [...new Set(keywords)];
-        for (let i = uniqueWords.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [uniqueWords[i], uniqueWords[j]] = [uniqueWords[j], uniqueWords[i]];
-        }
-        return uniqueWords.slice(0, number);
-    } catch (error) {
-        Logger.error('Error getting unique words:', error);
-        return [];
     }
 }
 
@@ -272,14 +153,10 @@ function getUniqueWords(number: number): string[] {
  */
 function handleBookmarkCountInput(e: Event): void {
     const target = e.target as HTMLInputElement;
-    const value = validateAndSetBookmarkCount(target.value);
+    const value = validateBookmarkCount(target.value);
     target.value = value.toString();
-    state.bookmarkCount = value;
-    chrome.storage.local.set({ BOOKMARK_COUNT: value }, () => {
-        if (chrome.runtime.lastError) {
-            Logger.error('Failed to save bookmark count:', chrome.runtime.lastError);
-        }
-    });
+    state.settings.bookmarkCount = value;
+    setStorageItem('BOOKMARK_COUNT', value);
 }
 
 /**
@@ -289,13 +166,9 @@ function handleBookmarkCountInput(e: Event): void {
 function handleBookmarkCountBlur(e: Event): void {
     const target = e.target as HTMLInputElement;
     if (!target.value) {
-        target.value = DEFAULT_BOOKMARK_COUNT.toString();
-        state.bookmarkCount = DEFAULT_BOOKMARK_COUNT;
-        chrome.storage.local.set({ BOOKMARK_COUNT: DEFAULT_BOOKMARK_COUNT }, () => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to save default bookmark count:', chrome.runtime.lastError);
-            }
-        });
+        target.value = config.DEFAULT_BOOKMARK_COUNT.toString();
+        state.settings.bookmarkCount = config.DEFAULT_BOOKMARK_COUNT;
+        setStorageItem('BOOKMARK_COUNT', config.DEFAULT_BOOKMARK_COUNT);
     }
 }
 
@@ -305,14 +178,16 @@ function handleBookmarkCountBlur(e: Event): void {
  */
 function handleSkipDurationInput(e: Event): void {
     const target = e.target as HTMLInputElement;
-    const value = validateAndSetSkipDuration(target.value);
+    const value = validateSkipDuration(target.value);
     target.value = value.toString();
-    state.skipDuration = value;
-    chrome.storage.local.set({ SKIP_DURATION: value }, () => {
-        if (chrome.runtime.lastError) {
-            Logger.error('Failed to save skip duration:', chrome.runtime.lastError);
-        }
-    });
+    state.settings.skipDuration = value;
+
+    // Only update progress bar animation if not in progress
+    if (!state.isProcessRunning) {
+        updateProgressBarDuration(value);
+    }
+
+    setStorageItem('SKIP_DURATION', value);
 }
 
 /**
@@ -322,13 +197,15 @@ function handleSkipDurationInput(e: Event): void {
 function handleSkipDurationBlur(e: Event): void {
     const target = e.target as HTMLInputElement;
     if (!target.value) {
-        target.value = DEFAULT_SKIP_DURATION.toString();
-        state.skipDuration = DEFAULT_SKIP_DURATION;
-        chrome.storage.local.set({ SKIP_DURATION: DEFAULT_SKIP_DURATION }, () => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to save default skip duration:', chrome.runtime.lastError);
-            }
-        });
+        target.value = config.DEFAULT_SKIP_DURATION.toString();
+        state.settings.skipDuration = config.DEFAULT_SKIP_DURATION;
+
+        // Only update progress bar animation if not in progress
+        if (!state.isProcessRunning) {
+            updateProgressBarDuration(config.DEFAULT_SKIP_DURATION);
+        }
+
+        setStorageItem('SKIP_DURATION', config.DEFAULT_SKIP_DURATION);
     }
 }
 
@@ -338,13 +215,9 @@ function handleSkipDurationBlur(e: Event): void {
  */
 function handleBaseUrlInput(e: Event): void {
     const target = e.target as HTMLInputElement;
-    state.baseUrl = target.value;
-    updateValidationStatus(state.baseUrl);
-    chrome.storage.local.set({ BASE_URL: state.baseUrl }, () => {
-        if (chrome.runtime.lastError) {
-            Logger.error('Failed to save base URL:', chrome.runtime.lastError);
-        }
-    });
+    state.settings.baseUrl = target.value;
+    updateValidationStatus(state.settings.baseUrl);
+    setStorageItem('BASE_URL', state.settings.baseUrl);
 }
 
 /**
@@ -358,21 +231,23 @@ async function handleResetProgressClick(): Promise<void> {
             state.intervalId = null;
         }
         state.isProcessRunning = false;
+        stopProgressBarAnimation();
 
-        showNotification('Resetting progress...', 'info');
+        // Reset timer
+        if (timeRemaining) {
+            timeRemaining.textContent = "--:--";
+        }
 
-        await emptyMicrosoftRewardsFolder();
-        await createBingSearchBookmarks();
+        await MicrosoftRewardsBookmarks.emptyFolder();
+        await MicrosoftRewardsBookmarks.createBingSearchBookmarks(
+            state.settings.bookmarkCount,
+            state.settings.baseUrl,
+            keywords
+        );
 
-        chrome.storage.local.set({ lastVisitedIndex: 0 }, () => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to reset progress:', chrome.runtime.lastError);
-                showNotification('Failed to reset progress', 'error');
-            } else {
-                initialize();
-                showNotification('Progress reset successfully!', 'success');
-            }
-        });
+        setStorageItem('lastVisitedIndex', 0);
+        initialize();
+        showNotification('Progress reset successfully!', 'success');
     } catch (error) {
         Logger.error('Error in reset progress:', error);
         showNotification('Error resetting progress', 'error');
@@ -387,10 +262,21 @@ skipDurationInput.addEventListener("input", handleSkipDurationInput);
 bookmarkCountInput.addEventListener("input", handleBookmarkCountInput);
 bookmarkCountInput.addEventListener("blur", handleBookmarkCountBlur);
 resetProgressButton.addEventListener("click", handleResetProgressClick);
+openBookmarkButton.addEventListener("click", handleOpenBookmarkClick);
 
-document.getElementById("openBookmark")!.addEventListener("click", handleOpenBookmarkClick);
+// Set up abort button event listener
+if (abortTaskButton) {
+    abortTaskButton.addEventListener("click", handleAbortTaskClick);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     Logger.info('Popup initialized');
+
+    // Initialize abort button as disabled
+    if (abortTaskButton) {
+        abortTaskButton.disabled = true;
+    }
+
     initialize();
 });
 
@@ -399,65 +285,30 @@ document.addEventListener("DOMContentLoaded", () => {
  */
 async function initialize(): Promise<void> {
     try {
-        state.baseUrl = await getStorageItem("BASE_URL", "");
-        baseUrlTextbox.value = state.baseUrl;
-        updateValidationStatus(state.baseUrl);
+        state.settings.baseUrl = await getStorageItem("BASE_URL", "");
+        baseUrlTextbox.value = state.settings.baseUrl;
+        updateValidationStatus(state.settings.baseUrl);
 
-        state.skipDuration = await getStorageItem("SKIP_DURATION", DEFAULT_SKIP_DURATION);
-        skipDurationInput.value = state.skipDuration.toString();
+        state.settings.skipDuration = await getStorageItem("SKIP_DURATION", config.DEFAULT_SKIP_DURATION);
+        skipDurationInput.value = state.settings.skipDuration.toString();
+        updateProgressBarDuration(state.settings.skipDuration);
 
-        state.bookmarkCount = await getStorageItem("BOOKMARK_COUNT", DEFAULT_BOOKMARK_COUNT);
-        bookmarkCountInput.value = state.bookmarkCount.toString();
+        state.settings.bookmarkCount = await getStorageItem("BOOKMARK_COUNT", config.DEFAULT_BOOKMARK_COUNT);
+        bookmarkCountInput.value = state.settings.bookmarkCount.toString();
 
         state.lastVisitedIndex = await getStorageItem("lastVisitedIndex", 0);
-        lastPosition.textContent = state.lastVisitedIndex.toString();
 
         // Ensure Microsoft Rewards folder exists
-        chrome.bookmarks.getTree((tree) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to get bookmark tree:', chrome.runtime.lastError);
-                return;
-            }
+        try {
+            await MicrosoftRewardsBookmarks.ensureFolder();
 
-            const bookmarkBar = tree[0].children?.[0];
-            const hasFolder = bookmarkBar?.children?.some((node) => node.title === "Microsoft Rewards");
-
-            if (!hasFolder) {
-                chrome.bookmarks.create({
-                    parentId: bookmarkBar?.id,
-                    index: 0,
-                    title: "Microsoft Rewards",
-                }, (folder) => {
-                    if (chrome.runtime.lastError) {
-                        Logger.error('Failed to create Microsoft Rewards folder:', chrome.runtime.lastError);
-                    } else {
-                        Logger.info('Microsoft Rewards folder created');
-                    }
-                });
-            }
-        });
-
-        // Update progress display
-        chrome.bookmarks.search({ title: "Microsoft Rewards" }, (folders) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to search for Microsoft Rewards folder:', chrome.runtime.lastError);
-                return;
-            }
-
-            if (folders.length) {
-                const folderId = folders[0].id;
-                chrome.bookmarks.getChildren(folderId, (bookmarks) => {
-                    if (chrome.runtime.lastError) {
-                        Logger.error('Failed to get bookmark children:', chrome.runtime.lastError);
-                        return;
-                    }
-
-                    counterDisplay.textContent = `${state.lastVisitedIndex} out of ${bookmarks.length}`;
-                });
-            } else {
-                counterDisplay.textContent = "0 out of 0";
-            }
-        });
+            // Update progress display
+            const bookmarkCount = await MicrosoftRewardsBookmarks.getBookmarkCount();
+            counterDisplay.textContent = `${state.lastVisitedIndex} out of ${bookmarkCount}`;
+        } catch (error) {
+            Logger.error('Error ensuring Microsoft Rewards folder:', error);
+            counterDisplay.textContent = "0 out of 0";
+        }
     } catch (error) {
         Logger.error('Error in initialize:', error);
         showNotification('Failed to initialize extension', 'error');
@@ -468,154 +319,168 @@ async function initialize(): Promise<void> {
  * Handle click event for the Start/Resume Script button.
  * Starts the bookmark opening process if the base URL is valid and not already running.
  */
-function handleOpenBookmarkClick(): void {
-    if (!state.isBaseUrlValid) {
+async function handleOpenBookmarkClick(): Promise<void> {
+    if (!state.settings.isBaseUrlValid) {
         showNotification('Base URL is not valid', 'error');
         return;
     }
+
     if (state.isProcessRunning) {
         showNotification('Process is already running. Please wait for it to complete.', 'warning');
         return;
     }
 
-    chrome.bookmarks.search({ title: "Microsoft Rewards" }, (folders) => {
+    try {
+        const bookmarks = await MicrosoftRewardsBookmarks.getBookmarks();
+
+        if (!bookmarks.length) {
+            showNotification('No bookmarks found. Please reset progress first.', 'warning');
+            return;
+        }
+
+        state.isProcessRunning = true;
+
+        // Start the first progress bar animation immediately
+        if (progressBar) {
+            progressBar.classList.remove('animating');
+            progressBar.style.width = '0%';
+            progressBar.offsetHeight; // Force reflow
+            progressBar.classList.add('animating');
+        }
+
+        // Initialize timer - start with 0 since we're about to process the first bookmark
+        updateTimer(0, bookmarks.length, state.settings.skipDuration);
+
+        showNotification('Bookmark automation started!', 'success');
+        Logger.info('Bookmark automation started');
+
+        chrome.runtime.sendMessage({ action: 'startBookmarkAutomation' }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Service worker error:', chrome.runtime.lastError);
+                showNotification('Service worker not responding', 'error');
+            } else if (response && response.status === 'automation-in-progress') {
+                state.isProcessRunning = true;
+                openBookmarkButton.textContent = 'Working...';
+                openBookmarkButton.disabled = true;
+
+                // Enable abort button when task starts
+                if (abortTaskButton) {
+                    abortTaskButton.disabled = false;
+                }
+
+                // Disable reset progress button when task starts
+                if (resetProgressButton) {
+                    resetProgressButton.disabled = true;
+                }
+
+                showNotification('Task started!', 'info');
+            }
+        });
+    } catch (error) {
+        Logger.error('Failed to access bookmarks:', error);
+        showNotification('Failed to access bookmarks', 'error');
+    }
+}
+
+// Listen for completion message from service worker
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.status === 'done' && message.action === 'startBookmarkAutomation') {
+        state.isProcessRunning = false;
+        if (openBookmarkButton) {
+            openBookmarkButton.textContent = 'Start Task';
+            openBookmarkButton.disabled = false;
+        }
+
+        // Enable reset progress button when task completes
+        if (resetProgressButton) {
+            resetProgressButton.disabled = false;
+        }
+
+        // Disable abort button when task completes
+        if (abortTaskButton) {
+            abortTaskButton.disabled = true;
+        }
+
+        showNotification('Task completed!', 'success');
+    }
+
+    // Handle bookmark automation progress updates
+    if (message.action === 'automation-progress-update') {
+        const { currentIndex, totalBookmarks } = message;
+        if (counterDisplay) {
+            counterDisplay.textContent = `${currentIndex} out of ${totalBookmarks}`;
+        }
+
+        // Update progress bar animation
+        if (progressBar) {
+            progressBar.classList.remove('animating');
+            progressBar.style.width = '0%';
+            // Force a reflow to ensure the reset is applied
+            progressBar.offsetHeight;
+            progressBar.classList.add('animating');
+        }
+
+        // Update timer
+        updateTimer(currentIndex, totalBookmarks, state.settings.skipDuration);
+
+        console.log(`Progress Update: ${currentIndex}/${totalBookmarks}`);
+    }
+
+    // Handle abort completion (when service worker sends completion after abort)
+    if (message.status === 'done' && message.action === 'startBookmarkAutomation' && !state.isProcessRunning) {
+        // This handles the case where the service worker sends completion after abort
+        // We don't need to do anything since handleAbortTaskClick already reset the UI
+        Logger.info('Received completion message after abort');
+    }
+});
+
+/**
+ * Handle click event for the abort task button.
+ * Stops the current bookmark opening process.
+ */
+function handleAbortTaskClick(): void {
+    if (!state.isProcessRunning) {
+        showNotification('No task is currently running', 'warning');
+        return;
+    }
+
+    chrome.runtime.sendMessage({ action: 'abortAutomation' }, (response) => {
         if (chrome.runtime.lastError) {
-            Logger.error('Failed to search for Microsoft Rewards folder:', chrome.runtime.lastError);
-            showNotification('Failed to access bookmarks', 'error');
+            console.error('Service worker error:', chrome.runtime.lastError);
+            showNotification('Service worker not responding', 'error');
             return;
         }
 
-        const folderId = folders[0]?.id;
-        if (!folderId) {
-            showNotification('Microsoft Rewards folder not found', 'error');
-            return;
+        // Reset UI state
+        state.isProcessRunning = false;
+
+        // Reset start button
+        if (openBookmarkButton) {
+            openBookmarkButton.textContent = 'Start Task';
+            openBookmarkButton.disabled = false;
         }
 
-        chrome.bookmarks.getChildren(folderId, (bookmarks) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to get bookmark children:', chrome.runtime.lastError);
-                showNotification('Failed to access bookmarks', 'error');
-                return;
-            }
-
-            if (!bookmarks.length) {
-                showNotification('No bookmarks found. Please reset progress first.', 'warning');
-                return;
-            }
-
-            state.isProcessRunning = true;
-            const delay = state.skipDuration * 1000;
-            state.intervalId = setInterval(() => updateStatusText(bookmarks), delay);
-            showNotification('Bookmark automation started!', 'success');
-            Logger.info('Bookmark automation started');
-        });
-    });
-}
-
-/**
- * Remove all bookmarks from the Microsoft Rewards folder.
- */
-function emptyMicrosoftRewardsFolder(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        chrome.bookmarks.search({ title: "Microsoft Rewards" }, (folders) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to search for Microsoft Rewards folder:', chrome.runtime.lastError);
-                reject(chrome.runtime.lastError);
-                return;
-            }
-
-            const folderId = folders[0]?.id;
-            if (!folderId) {
-                Logger.warn('Microsoft Rewards folder not found for emptying');
-                resolve();
-                return;
-            }
-
-            chrome.bookmarks.getChildren(folderId, (bookmarks) => {
-                if (chrome.runtime.lastError) {
-                    Logger.error('Failed to get bookmark children:', chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                    return;
-                }
-
-                let removedCount = 0;
-                const totalBookmarks = bookmarks.length;
-
-                if (totalBookmarks === 0) {
-                    resolve();
-                    return;
-                }
-
-                bookmarks.forEach((bookmark) => {
-                    chrome.bookmarks.remove(bookmark.id, () => {
-                        if (chrome.runtime.lastError) {
-                            Logger.error('Failed to remove bookmark:', chrome.runtime.lastError);
-                        } else {
-                            removedCount++;
-                            Logger.info(`Removed bookmark: ${bookmark.title}`);
-                        }
-
-                        if (removedCount === totalBookmarks) {
-                            Logger.info(`Successfully removed ${removedCount} bookmarks`);
-                            resolve();
-                        }
-                    });
-                });
-            });
-        });
-    });
-}
-
-/**
- * Create Bing search bookmarks in the Microsoft Rewards folder using unique keywords.
- */
-async function createBingSearchBookmarks(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const uniqueWords = getUniqueWords(state.bookmarkCount);
-        const _baseUrl = state.baseUrl;
-
-        if (!uniqueWords.length) {
-            reject(new Error('No keywords available'));
-            return;
+        // Enable reset progress button
+        if (resetProgressButton) {
+            resetProgressButton.disabled = false;
         }
 
-        chrome.bookmarks.search({ title: "Microsoft Rewards" }, (folders) => {
-            if (chrome.runtime.lastError) {
-                Logger.error('Failed to search for Microsoft Rewards folder:', chrome.runtime.lastError);
-                reject(chrome.runtime.lastError);
-                return;
-            }
+        // Disable abort button
+        if (abortTaskButton) {
+            abortTaskButton.disabled = true;
+        }
 
-            const folderId = folders[0]?.id;
-            if (!folderId) {
-                Logger.error("Microsoft Rewards folder not found");
-                reject(new Error('Microsoft Rewards folder not found'));
-                return;
-            }
+        // Stop progress bar animation
+        stopProgressBarAnimation();
 
-            let createdCount = 0;
-            const totalWords = uniqueWords.length;
+        // Reset timer
+        if (timeRemaining) {
+            timeRemaining.textContent = "--:--";
+        }
 
-            uniqueWords.forEach((word) => {
-                const url = replaceQueryParam(_baseUrl, word);
-                chrome.bookmarks.create({
-                    parentId: folderId,
-                    title: word,
-                    url: url,
-                }, (bookmark) => {
-                    if (chrome.runtime.lastError) {
-                        Logger.error(`Failed to create bookmark for "${word}":`, chrome.runtime.lastError);
-                    } else {
-                        createdCount++;
-                        Logger.info(`Created bookmark: ${word}`);
-                    }
-
-                    if (createdCount === totalWords) {
-                        Logger.info(`Successfully created ${createdCount} bookmarks`);
-                        resolve();
-                    }
-                });
-            });
-        });
+        showNotification('Task aborted successfully!', 'info');
+        Logger.info('Task aborted by user');
     });
 }
+
+

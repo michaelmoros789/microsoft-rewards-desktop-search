@@ -24,7 +24,8 @@
 body {
     width: 300px;
     padding: 24px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     margin: 0;
@@ -158,9 +159,11 @@ button {
 }
 
 button:disabled {
-    background-color: hsl(var(--muted));
-    color: hsl(var(--muted-foreground));
+    background-color: #d1d5db; /* Light gray */
+    color: #6b7280; /* Darker gray text */
     cursor: not-allowed;
+    opacity: 0.6;
+    border: 1px solid #e5e7eb;
 }
 
 .button-container {
@@ -174,9 +177,19 @@ button:disabled {
     color: hsl(var(--primary-foreground));
 }
 
+#testStateButton {
+    background-color: #3b82f6; /* Blue */
+    color: white;
+}
+
 #resetProgress {
-    background-color: hsl(var(--secondary));
-    color: hsl(var(--secondary-foreground));
+    background-color: #6b7280; /* Gray */
+    color: white;
+}
+
+#abortTask {
+    background-color: #ef4444; /* Red */
+    color: white;
 }
 
 button:hover:not(:disabled) {
@@ -202,18 +215,66 @@ button:hover:not(:disabled) {
     color: hsl(var(--foreground));
 }
 
+.timer-container {
+    background-color: hsl(var(--card));
+    padding: 16px;
+    border-radius: var(--radius);
+    text-align: center;
+    border: 1px solid hsl(var(--border));
+    margin-bottom: 16px;
+}
+
+.timer-container p {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 14px;
+}
+
+#timeRemaining {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    font-size: 16px;
+    font-family: "Courier New", monospace;
+}
+
 .progress-container {
     background-color: hsl(var(--card));
     padding: 16px;
     border-radius: var(--radius);
     text-align: center;
     border: 1px solid hsl(var(--border));
+    position: relative;
+    overflow: hidden;
 }
 
 #counterDisplay {
     font-weight: 500;
     color: hsl(var(--foreground));
     font-size: 14px;
+}
+
+.progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: #ffd700;
+    width: 0%;
+    border-radius: 0 0 4px 4px;
+    transition: width 0.1s ease-out;
+}
+
+.progress-bar.animating {
+    animation: progress-fill 1s linear;
+}
+
+@keyframes progress-fill {
+    0% {
+        width: 0%;
+    }
+    100% {
+        width: 100%;
+    }
 }
 
 p {
@@ -234,7 +295,23 @@ p {
     z-index: 1000;
     max-width: 280px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    animation: slideIn 0.3s ease-out;
+    margin-bottom: 8px;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+        top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity, top;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification.hide {
+    transform: translateX(120%);
+    opacity: 0;
 }
 
 .notification.success {
@@ -275,7 +352,7 @@ p {
 }
 
 .loading::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -289,6 +366,10 @@ p {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
