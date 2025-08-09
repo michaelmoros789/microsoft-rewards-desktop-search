@@ -1,4 +1,4 @@
-(window as any).keywords = [
+export const keywords = [
     "ChatGPT 4.5",
     "iPhone 16",
     "AI girlfriend",

@@ -48,9 +48,7 @@ export class NotificationManager {
         maxNotifications: 3
     };
 
-    private constructor() {
-        // Private constructor for singleton pattern
-    }
+    private constructor() { }
 
     /**
      * Get the singleton instance
