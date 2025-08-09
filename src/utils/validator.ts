@@ -29,3 +29,23 @@ export function validateBookmarkCount(value: string): number {
     const num = parseInt(value);
     return isNaN(num) ? config.DEFAULT_BOOKMARK_COUNT : Math.min(Math.max(num, config.MIN_BOOKMARK_COUNT), config.MAX_BOOKMARK_COUNT);
 }
+
+/**
+ * Validate and clamp the batch size input.
+ * @param value The input value
+ * @returns A valid batch size
+ */
+export function validateBatchSize(value: string): number {
+    const num = parseInt(value);
+    return isNaN(num) ? config.DEFAULT_BATCH_SIZE : Math.min(Math.max(num, config.MIN_BATCH_SIZE), config.MAX_BATCH_SIZE);
+}
+
+/**
+ * Validate and clamp the batch interval input.
+ * @param value The input value
+ * @returns A valid batch interval
+ */
+export function validateBatchInterval(value: string): number {
+    const num = parseInt(value);
+    return isNaN(num) ? config.DEFAULT_BATCH_INTERVAL : Math.min(Math.max(num, config.MIN_BATCH_INTERVAL), config.MAX_BATCH_INTERVAL);
+}

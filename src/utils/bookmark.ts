@@ -1,13 +1,14 @@
 import { Logger } from "./logger";
 import { getUniqueWords } from "./keyword";
 import { replaceQueryParam } from "./url";
+import { config } from "../config";
 
 /**
  * Utility class for managing Microsoft Rewards bookmarks.
  * All methods perform fresh searches to ensure data consistency.
  */
 export class MicrosoftRewardsBookmarks {
-    private static readonly FOLDER_TITLE = "Microsoft Rewards";
+    private static readonly bookmarkFolderName = config.BOOKMARK_FOLDER_NAME;
 
     /**
      * Search for the Microsoft Rewards folder.
@@ -15,7 +16,7 @@ export class MicrosoftRewardsBookmarks {
      */
     private static async findFolder(): Promise<string | null> {
         return new Promise((resolve) => {
-            chrome.bookmarks.search({ title: this.FOLDER_TITLE }, (folders) => {
+            chrome.bookmarks.search({ title: this.bookmarkFolderName }, (folders) => {
                 if (chrome.runtime.lastError) {
                     Logger.error('Failed to search for Microsoft Rewards folder:', chrome.runtime.lastError);
                     resolve(null);
@@ -47,51 +48,6 @@ export class MicrosoftRewardsBookmarks {
     }
 
     /**
-     * Ensure the Microsoft Rewards folder exists in the bookmark bar.
-     * Creates the folder if it doesn't exist.
-     */
-    static async ensureFolder(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            chrome.bookmarks.getTree((tree) => {
-                if (chrome.runtime.lastError) {
-                    Logger.error('Failed to get bookmark tree:', chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                    return;
-                }
-
-                const bookmarkBar = tree[0].children?.[0];
-                const hasFolder = bookmarkBar?.children?.some((node) => node.title === this.FOLDER_TITLE);
-
-                if (!hasFolder) {
-                    chrome.bookmarks.create({
-                        parentId: bookmarkBar?.id,
-                        index: 0,
-                        title: this.FOLDER_TITLE,
-                    }, (folder) => {
-                        if (chrome.runtime.lastError) {
-                            Logger.error('Failed to create Microsoft Rewards folder:', chrome.runtime.lastError);
-                            reject(chrome.runtime.lastError);
-                        } else {
-                            Logger.info('Microsoft Rewards folder created');
-                            resolve();
-                        }
-                    });
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /**
-     * Get the Microsoft Rewards folder ID.
-     * @returns Promise that resolves to the folder ID, or null if folder doesn't exist
-     */
-    static async getFolderId(): Promise<string | null> {
-        return this.findFolder();
-    }
-
-    /**
      * Get all bookmarks from the Microsoft Rewards folder.
      * @returns Promise that resolves to an array of bookmarks, or empty array if folder doesn't exist
      */
@@ -101,15 +57,6 @@ export class MicrosoftRewardsBookmarks {
             return [];
         }
         return this.getFolderChildren(folderId);
-    }
-
-    /**
-     * Get the count of bookmarks in the Microsoft Rewards folder.
-     * @returns Promise that resolves to the number of bookmarks, or 0 if folder doesn't exist
-     */
-    static async getBookmarkCount(): Promise<number> {
-        const bookmarks = await this.getBookmarks();
-        return bookmarks.length;
     }
 
     /**
@@ -179,7 +126,7 @@ export class MicrosoftRewardsBookmarks {
                 return;
             }
 
-            this.getFolderId().then((folderId) => {
+            this.findFolder().then((folderId) => {
                 if (!folderId) {
                     Logger.error("Microsoft Rewards folder not found");
                     reject(new Error('Microsoft Rewards folder not found'));
@@ -215,7 +162,4 @@ export class MicrosoftRewardsBookmarks {
 
 // Legacy function exports for backward compatibility
 export const emptyMicrosoftRewardsFolder = MicrosoftRewardsBookmarks.emptyFolder;
-export const ensureMicrosoftRewardsFolder = MicrosoftRewardsBookmarks.ensureFolder;
-export const getMicrosoftRewardsBookmarkCount = MicrosoftRewardsBookmarks.getBookmarkCount;
-export const getMicrosoftRewardsFolderId = MicrosoftRewardsBookmarks.getFolderId;
 export const getMicrosoftRewardsBookmarks = MicrosoftRewardsBookmarks.getBookmarks;

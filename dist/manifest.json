@@ -10,7 +10,8 @@
     "alarms"
   ],
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "service-worker.js",
+    "type": "module"
   },
   "host_permissions": [
     "https://www.bing.com/*"

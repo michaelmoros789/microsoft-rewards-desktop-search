@@ -1,13 +1,14 @@
 const path = require("path");
 const fs = require("fs");
 const CopyPlugin = require("copy-webpack-plugin");
+const webpack = require("webpack");
 
 module.exports = {
     mode: process.env.NODE_ENV === "development" ? "development" : "production",
     entry: {
         popup: "./src/popup.ts",
         "service-worker": "./src/service-worker.ts",
-        keywords: "./src/keywords.ts",
+        keywords: "./src/utils/keywords.ts",
     },
     output: {
         filename: "[name].js",
@@ -42,6 +43,11 @@ module.exports = {
                 { from: "icon.png", to: "icon.png" },
                 { from: "manifest.json", to: "manifest.json" },
             ],
+        }),
+        new webpack.DefinePlugin({
+            "process.env.NODE_ENV": JSON.stringify(
+                process.env.NODE_ENV || "development"
+            ),
         }),
     ],
 };
