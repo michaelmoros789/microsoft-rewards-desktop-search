@@ -5,6 +5,7 @@ import { config } from "./config";
 import { MicrosoftRewardsBookmarks } from "./utils/bookmark";
 import { keywords } from "./utils/keywords";
 import { getUniqueWords } from "./utils/keyword";
+import { computeTiming } from "./utils/timing";
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -33,8 +34,6 @@ interface MessageResponse {
 
 let currentTask: Task | null = null;
 let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
-
-
 
 // ============================================================================
 // KEEP-ALIVE MANAGER
@@ -140,11 +139,24 @@ class TaskManager {
 // ============================================================================
 
 class ProgressTracker {
-    static sendProgressUpdate(currentIndex: number, totalBookmarks: number): void {
+    static async sendProgressUpdate(currentIndex: number, totalBookmarks: number) {
+        const skipDuration = await getStorageItem('SKIP_DURATION', config.DEFAULT_SKIP_DURATION);
+        const batchSize = await getStorageItem('BATCH_SIZE', config.DEFAULT_BATCH_SIZE);
+        const batchInterval = await getStorageItem('BATCH_INTERVAL', config.DEFAULT_BATCH_INTERVAL);
+
+        const { remainingTime } = computeTiming({
+            totalBookmarks,
+            currentIndex,
+            skipDuration,
+            batchSize,
+            batchInterval
+        });
+
         chrome.runtime.sendMessage({
             action: "automation-progress-update",
             currentIndex,
-            totalBookmarks
+            totalBookmarks,
+            remainingTime,
         }).catch(error => {
             // Only log error if it's not a connection error (popup closed)
             if (!error.message.includes('Receiving end does not exist')) {

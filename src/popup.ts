@@ -5,9 +5,8 @@ import { Logger } from "./utils/logger";
 import { getStorageItem, setStorageItem } from "./utils/storage";
 import { isValidUrlPattern, validateSkipDuration, validateBookmarkCount, validateBatchSize, validateBatchInterval } from "./utils/validator";
 import { NotificationManager } from "./utils/notification";
-
-import { MicrosoftRewardsBookmarks } from "./utils/bookmark";
 import { ClearBookmarksMessage } from "./utils/types";
+import { computeTiming } from "./utils/timing";
 
 // DOM Elements
 const counterDisplay = document.getElementById("counterDisplay") as HTMLElement;
@@ -34,7 +33,6 @@ type AppState = {
     isProcessRunning: boolean;
     /** Current status of the automation */
     currentStatus: 'Idle' | 'Executing' | 'On-Pause';
-
     /** Current progress display value */
     currentProgress: string;
     /** Current timer display value */
@@ -50,7 +48,6 @@ type AppState = {
         abortButtonDisabled: boolean;
         resetButtonDisabled: boolean;
     };
-
     settings: {
         /** Delay (seconds) between opening bookmarks */
         skipDuration: number;
@@ -69,13 +66,10 @@ type AppState = {
     };
 };
 
-
-
 /**
  * Global state object for the popup UI.
  */
 const state: AppState = {
-
     isProcessRunning: false,
     currentStatus: 'Idle',
     currentProgress: "0/0",
@@ -198,23 +192,12 @@ function formatTime(totalSeconds: number): string {
 }
 
 /**
- * Update the timer display with total estimated duration.
- * @param totalBookmarks Total number of bookmarks
- * @param skipDuration Skip duration in seconds
+ * Update the timer display with formatted time.
+ * @param remainingTime Remaining time in seconds
  */
-function updateTimer(totalBookmarks: number, skipDuration: number): void {
+function updateTimer(remainingTime: number): void {
     if (timeRemaining) {
-        // Calculate total estimated duration for all bookmarks
-        let totalSeconds = totalBookmarks * skipDuration;
-
-        // Add batch pause times for all complete batches
-        const batchSize = state.settings.batchSize;
-        const batchInterval = state.settings.batchInterval;
-        const totalBatches = Math.floor(totalBookmarks / batchSize);
-        totalSeconds += totalBatches * batchInterval;
-
-        // Format as total duration with estimated indicator
-        timeRemaining.textContent = `< ${formatTime(totalSeconds)}`;
+        timeRemaining.textContent = `< ${formatTime(remainingTime)}`;
     }
 }
 
@@ -599,9 +582,16 @@ async function handleOpenBookmarkClick(): Promise<void> {
     }
 
     try {
-        const { bookmarkCount, skipDuration } = state.settings;
+        const { bookmarkCount, skipDuration, batchSize, batchInterval } = state.settings;
+        const { remainingTime } = computeTiming({
+            totalBookmarks: bookmarkCount,
+            currentIndex: 0,
+            skipDuration,
+            batchSize,
+            batchInterval
+        });
 
-        updateTimer(bookmarkCount, skipDuration);
+        updateTimer(remainingTime);
 
         chrome.runtime.sendMessage({ action: 'start' }, async (response) => {
             if (response && response.status === 'starting') {
@@ -984,20 +974,14 @@ chrome.runtime.onMessage.addListener(async (message) => {
 
     // Handle bookmark automation progress updates
     if (message.action === 'automation-progress-update') {
-        const { currentIndex, totalBookmarks } = message;
+        const { currentIndex, totalBookmarks, remainingTime } = message;
         if (counterDisplay) {
             counterDisplay.textContent = `${currentIndex}/${totalBookmarks}`;
         }
 
-        // Update status to executing (in case it was paused)
         updateStatus('Executing');
-
-        // Update timer
-        updateTimer(totalBookmarks, state.settings.skipDuration);
-
-        // Save state after progress update
+        updateTimer(remainingTime);
         await saveUIState();
-        console.log(`Progress Update: ${currentIndex}/${totalBookmarks}`);
     }
 
     // Handle batch pause notification
