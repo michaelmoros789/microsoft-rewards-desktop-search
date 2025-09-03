@@ -35,7 +35,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
-  "author": "Your Name",
-  "homepage_url": "https://github.com/yourusername/microsoft-rewards-bookmark-manager",
+  "author": "michaelmoros09",
+  "homepage_url": "https://github.com/michaelmoros09/microsoft-rewards-desktop-search",
   "minimum_chrome_version": "88"
 }
