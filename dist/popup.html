@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Microsoft Rewards Bookmark Manager</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="input-group">
+            <div class="label-container">
+                <div class="lock-container">
+                    <input type="checkbox" id="lockBaseUrl" />
+                    <label for="lockBaseUrl" class="lock-label" title="Lock this value to prevent it from being overwritten when loading defaults">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <circle cx="12" cy="16" r="1"></circle>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </label>
+                </div>
+                <label for="baseUrl">Base URL</label>
+                <span id="validationStatus" class="validation-status"></span>
+            </div>
+            <input
+                type="text"
+                id="baseUrl"
+                placeholder="https://www.bing.com/search?q="
+            />
+        </div>
+        <div class="input-row">
+            <div class="input-column">
+                <div class="label-container">
+                    <label for="skipDuration">Skip Duration</label>
+                </div>
+                <div class="number-input-container">
+                    <input
+                        type="number"
+                        id="skipDuration"
+                        placeholder="Enter duration in seconds"
+                        min="1"
+                        max="100"
+                        value="10"
+                    />
+                </div>
+                <small class="input-hint">Recommended: >= 10 seconds</small>
+            </div>
+            <div class="input-column">
+                <div class="label-container">
+                    <label for="bookmarkCount">Bookmark Count</label>
+                </div>
+                <div class="number-input-container">
+                    <input
+                        type="number"
+                        id="bookmarkCount"
+                        placeholder="Number of bookmarks"
+                        min="1"
+                        max="100"
+                        value="30"
+                    />
+                </div>
+                <small class="input-hint"
+                    >Recommended: >= 30 bookmarks for better results</small
+                >
+            </div>
+        </div>
+        <div class="input-row">
+            <div class="input-column">
+                <div class="label-container">
+                    <label for="batchSize">Batch Size</label>
+                </div>
+                <div class="number-input-container">
+                    <input
+                        type="number"
+                        id="batchSize"
+                        placeholder="Items per batch"
+                        min="1"
+                        max="50"
+                        value="4"
+                    />
+                </div>
+                <small class="input-hint"
+                    >Number of items to process before pausing</small
+                >
+            </div>
+                            <div class="input-column">
+                    <div class="label-container">
+                        <label for="batchInterval">Batch Interval</label>
+                    </div>
+                    <div class="number-input-container">
+                        <input
+                            type="number"
+                            id="batchInterval"
+                            placeholder="Pause duration in seconds"
+                            min="1"
+                            max="7200"
+                            value="3600"
+                        />
+                    </div>
+                    <small class="input-hint"
+                        >Pause duration between batches (seconds)</small
+                    >
+                </div>
+            </div>
+
+
+        </div>
+        <div class="button-container">
+            <button id="openBookmark">Start Task</button>
+            <button id="apply-changes">Apply Changes</button>
+            <button id="load-defaults">Load Defaults</button>
+            <button id="abortTask">Abort Task</button>
+        </div>
+        <div class="status-row">
+            <div class="status-column">
+                <div class="status-label">Status</div>
+                <div class="status-value" id="statusDisplay">Idle</div>
+            </div>
+            <div class="status-column">
+                <div class="status-label">Sync</div>
+                <div class="status-value" id="syncDisplay">Not Sync</div>
+            </div>
+        </div>
+        <div class="info-row">
+            <div class="info-column">
+                <div class="info-label">Duration</div>
+                <div class="info-value" id="timeRemaining">--:--</div>
+            </div>
+            <div class="info-column">
+                <div class="info-label">Progress</div>
+                <div class="info-value" id="counterDisplay">0/0</div>
+            </div>
+        </div>
+        <script src="keywords.js"></script>
+        <script src="popup.js"></script>
+    </body>
+</html>
